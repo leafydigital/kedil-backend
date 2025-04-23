@@ -57,4 +57,6 @@ app.use("/api/transaction", require("./routes/transactionsRoutes"));
 
 app.use("/api/budget", require("./routes/budgetRoutes"));
 
-app.listen(5000, () => console.log("Server running on port 5000"));
+module.exports = app;
+
+//app.listen(5000, () => console.log("Server running on port 5000"));
