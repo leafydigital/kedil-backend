@@ -1,6 +1,8 @@
 const Group = require('../models/Group');
 const Category = require('../models/Category');
 
+const defaultGroups = require('./defaultGroups');
+
 // Category Controllers
 exports.createCategory = async (req, res) => {
     try {
@@ -87,8 +89,32 @@ exports.createGroup = async (req, res) => {
 
 exports.getGroups = async (req, res) => {
     try {
-        const groups = await Group.find();
+        const userId = req.user.user_id;
+
+        let userGroups = await Group.find({ user_id: userId });
+
+        // Extract existing group names
+        const existingGroupNames = userGroups.map(g => g.group_name.toLowerCase());
+
+        // Filter only the default groups the user hasn't already created
+        const missingDefaultGroups = defaultGroups
+            .filter(defaultGroup => !existingGroupNames.includes(defaultGroup.group_name.toLowerCase()))
+            .map(g => ({
+                ...g,
+                _id: `default-${g.group_name.toLowerCase().replace(/\s/g, '-')}`, // fake id for frontend
+                is_default: true
+            }));
+
+        // Combine user groups and missing defaults
+        const groups = [...userGroups, ...missingDefaultGroups];
+
+        // if(groups.length == 0)
+        // {
+        //     groups = defaultGroups.map(g => ({ ...g, _id: 0, is_default: true }));
+        // }
+
         res.status(200).json(groups);
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

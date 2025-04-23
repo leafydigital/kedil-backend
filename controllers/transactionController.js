@@ -2,16 +2,37 @@ const Transactions = require('../models/Transactions');
 
 const Budget = require('../models/Budget');
 
+const UPIVendor = require('../models/UPIVendor');
+
 exports.createTransactions = async (req, res) => {
     try {
 
         const userId = req.user.user_id;
+
+        var vendor_id = req.body.vendor_id;
+
+        const existingVendor = await UPIVendor.findOne({ vendor_name: req.body.vendor_id, user_id: req.user.user_id });
+        if (!existingVendor) {
+
+            const vendor = new UPIVendor({
+                upi_id : null,
+                vendor_name: req.body.vendor_id,
+                vendor_category: req.body.category_id,
+                user_id: userId
+            });
+            await vendor.save();
+
+            vendor_id = vendor._id;
+        }
+
         const transactions = new Transactions({
             ...req.body,
-            user_id: req.user.user_id
+            user_id: req.user.user_id,
+            vendor_id: vendor_id
         });
 
-        await transactions.save();
+        await transactions.save();       
+
 
         const { transaction_date, category_id, transaction_type, transaction_amount, group_id } = req.body;
 
@@ -32,7 +53,7 @@ exports.createTransactions = async (req, res) => {
             if (budgets) {
                 // Step 3: Update existing summary
                 budgets.activity_amount += amount;
-                
+
                 budgets.available_amount = budgets.assigned_amount - budgets.activity_amount;
 
                 budgets.activity_amount = -budgets.activity_amount;
