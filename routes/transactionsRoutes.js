@@ -14,7 +14,7 @@ router.post('/create', createTransactions);
 router.get('/select', getTransactions);
 router.get('/select/:id', getTransactionById);
 router.put('/update/:id', updateTransaction);
-router.delete('/delete/:id', deleteTransaction);
+router.put('/delete/:id', deleteTransaction);
 
 
 module.exports = router;

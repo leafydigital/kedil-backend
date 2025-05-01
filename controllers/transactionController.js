@@ -270,11 +270,125 @@ exports.updateTransaction = async (req, res) => {
 };
 
 // Delete bank
+// exports.deleteTransaction = async (req, res) => {
+//     try {
+//         const transactions = await Transactions.findByIdAndDelete(req.params.id);
+//         if (!transactions) return res.status(404).json({ message: 'Transaction not found' });
+//         res.status(200).json({ message: 'Transaction deleted successfully' });
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// };
+
 exports.deleteTransaction = async (req, res) => {
     try {
-        const transactions = await Transactions.findByIdAndDelete(req.params.id);
-        if (!transactions) return res.status(404).json({ message: 'Transaction not found' });
-        res.status(200).json({ message: 'Transaction deleted successfully' });
+        const userId = req.user.user_id;
+        const transactionId = req.params.id;
+        const { isDelete = true } = req.body; // pass true for delete, false for undelete
+
+        // Step 1: Find the transaction
+        const transaction = await Transactions.findById(transactionId);
+        if (!transaction) return res.status(404).json({ error: "Transaction not found" });
+
+        const {
+            transaction_amount,
+            transaction_type,
+            transaction_date,
+            category_id,
+            group_id,
+            bank_account
+        } = transaction;
+
+        const amount = parseFloat(transaction_amount);
+        const dateObj = new Date(transaction_date);
+        const year = dateObj.getFullYear().toString();
+        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+
+        // Step 2: If isDelete === true, reverse effects
+        if (isDelete) {
+            let balanceDiff = 0;
+            let budgetDiff = 0;
+
+            if (transaction_type === "Debit") {
+                balanceDiff = amount;
+                budgetDiff = -amount;
+            } else if (transaction_type === "Credit") {
+                balanceDiff = -amount;
+                budgetDiff = 0;
+            }
+
+            // Step 3: Update bank account balance
+            await updateBalance({
+                user_id: userId,
+                budget_month: month,
+                budget_year: year,
+                account_balance: balanceDiff,
+                bank_id: bank_account
+            });
+
+            // Step 4: Update budget activity only if Debit
+            if (transaction_type === "Debit") {
+                let budget = await Budget.findOne({
+                    budget_month: month,
+                    budget_year: year,
+                    budget_category_id: category_id,
+                    user_id: userId
+                });
+
+                if (budget) {
+                    budget.activity_amount += budgetDiff;
+                    budget.activity_amount = -Math.abs(budget.activity_amount);
+                    budget.available_amount = budget.assigned_amount + budget.activity_amount;
+                    await budget.save();
+                }
+            }
+
+            // Step 5: Mark transaction inactive
+            transaction.is_active = false;
+            await transaction.save();
+            return res.status(200).json({ message: "Transaction deleted successfully", transaction });
+
+        } else {
+            // If undelete
+            let balanceDiff = 0;
+            let budgetDiff = 0;
+
+            if (transaction_type === "Debit") {
+                balanceDiff = -amount;
+                budgetDiff = amount;
+            } else if (transaction_type === "Credit") {
+                balanceDiff = amount;
+            }
+
+            await updateBalance({
+                user_id: userId,
+                budget_month: month,
+                budget_year: year,
+                account_balance: balanceDiff,
+                bank_id: bank_account
+            });
+
+            if (transaction_type === "Debit") {
+                let budget = await Budget.findOne({
+                    budget_month: month,
+                    budget_year: year,
+                    budget_category_id: category_id,
+                    user_id: userId
+                });
+
+                if (budget) {
+                    budget.activity_amount += budgetDiff;
+                    budget.activity_amount = -Math.abs(budget.activity_amount);
+                    budget.available_amount = budget.assigned_amount + budget.activity_amount;
+                    await budget.save();
+                }
+            }
+
+            transaction.is_active = true;
+            await transaction.save();
+            return res.status(200).json({ message: "Transaction restored successfully", transaction });
+        }
+
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
