@@ -311,7 +311,7 @@ exports.deleteTransaction = async (req, res) => {
 
             if (transaction_type === "Debit") {
                 balanceDiff = amount;
-                budgetDiff = -amount;
+                budgetDiff = amount;
             } else if (transaction_type === "Credit") {
                 balanceDiff = -amount;
                 budgetDiff = 0;

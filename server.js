@@ -34,10 +34,7 @@ app.use(cors({
 
 app.use(verifyToken);
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose.connect(process.env.MONGO_URI);
 
 // Routes
 
@@ -59,4 +56,4 @@ app.use("/api/budget", require("./routes/budgetRoutes"));
 
 module.exports = app;
 
-//app.listen(5000, () => console.log("Server running on port 5000"));
+// app.listen(5000, () => console.log("Server running on port 5000"));
